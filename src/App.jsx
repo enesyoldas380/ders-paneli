@@ -61,7 +61,7 @@ function Panel(){
   const [newGroupName,setNewGroupName]=useState("");
   // Sınıf alanı kaldırıldı → sadece name + parent_phone
   const [newStudent,setNewStudent]=useState({name:"",parent_phone:""});
-
+}
   // --- Supabase: Gruplar + öğrenciler ---
   const fetchAll = async () => {
     setLoading(true);
@@ -285,37 +285,30 @@ function Panel(){
         </div>
       </div>
 
-      {/* Toplu Önizleme */}
-      <div className="card">
-       {/* Toplu Önizleme */}
+   {/* Toplu Önizleme */}
 <div className="card">
   <h3 className="section-title">Toplu Önizleme</h3>
-
-  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-    <button
-      className="btn btn-primary"
-      onClick={() => {
-        console.log("Toplu gönderim tetiklendi!");
-        console.log("Gönderilecek mesajlar:", previews);
-        alert("Test: Toplu gönderim simülasyonu çalıştı (henüz gerçek mesaj yok)");
-      }}
-    >
+  <div style={{display:"flex", justifyContent:"flex-end", marginBottom:12}}>
+    <button className="btn btn-primary" onClick={()=>{
+      console.log("Toplu gönderim tetiklendi!");
+      console.log("Gönderilecek mesajlar:", previews);
+      alert("Test: Toplu gönderim simülasyonu çalıştı (henüz gerçek mesaj yok)");
+    }}>
       📤 Toplu Gönder
     </button>
   </div>
-        <div className="grid">
-          {previews.length===0 && <div style={{color:"var(--muted)"}}>Gönderilecek mesaj yok.</div>}
-          {previews.map(p=>(
-            <div key={p.id} className="student">
-              <div style={{fontWeight:700,marginBottom:6}}>{p.name}</div>
-              <div className="preview">{p.text}</div>
-            </div>
-          ))}
-        </div>
+
+  <div className="grid">
+    {previews.length===0 && <div style={{color:"var(--muted)"}}>Gönderilecek mesaj yok.</div>}
+    {previews.map(p=>(
+      <div key={p.id} className="student">
+        <div style={{fontWeight:700, marginBottom:6}}>{p.name}</div>
+        <div className="preview">{p.text}</div>
       </div>
-    </div>
-  );
-}
+    ))}
+  </div>
+</div>
+
 
 /* -------- UYGULAMA -------- */
 export default function App(){
