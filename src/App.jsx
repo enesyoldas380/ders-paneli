@@ -48,22 +48,21 @@ function Gate({ children }){
 
 /* -------- PANEL -------- */
 function Panel(){
-  // ekran: grup listesi / grup detayı
   const [screen,setScreen]=useState("groups"); // "groups" | "groupDetail"
   const [loading,setLoading]=useState(false);
   const [groups,setGroups]=useState([]);           // {id,name,students:[...]}
   const [activeGroupId,setActiveGroupId]=useState("");
   const activeGroup=useMemo(()=>groups.find(g=>g.id===activeGroupId),[groups,activeGroupId]);
 
-  // mod ve varsayılanlar (sadece ders öncesi için)
   const [mode,setMode]=useState("pre"); // pre | post
+  // Ders sonrası için varsayılan yok; sadece ders öncesi:
   const [defaults,setDefaults]=useState({ day:"Cuma", time:"15:00", place:"Öğrenci evinde", topic:"Namazın önemi" });
 
-  // yeni ekleme formları
   const [newGroupName,setNewGroupName]=useState("");
-  const [newStudent,setNewStudent]=useState({name:"",grade:"",parent_phone:""});
+  // Sınıf alanı kaldırıldı → sadece name + parent_phone
+  const [newStudent,setNewStudent]=useState({name:"",parent_phone:""});
 
-  // --- Supabase: Grupları ve öğrencileri çek ---
+  // --- Supabase: Gruplar + öğrenciler ---
   const fetchAll = async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -71,7 +70,7 @@ function Panel(){
       .select(`
         id, name, created_at,
         students (
-          id, name, grade, parent_phone,
+          id, name, parent_phone,
           day, time, place, topic, homework, custom_text, opted_out,
           created_at
         )
@@ -82,17 +81,14 @@ function Panel(){
       console.error(error);
       alert("Veriler çekilirken hata oluştu.");
     } else {
-      // null olan students için boş dizi ver
       setGroups((data||[]).map(g=>({ ...g, students: g.students || [] })));
       if (!activeGroupId && (data||[])[0]) setActiveGroupId((data||[])[0].id);
     }
     setLoading(false);
   };
-
   useEffect(()=>{ fetchAll(); /* eslint-disable-next-line */ },[]);
 
   // --- Grup ekle/sil ---
-  const slugify=str=>(str||"").toString().trim();
   const addGroup = async () => {
     const name = newGroupName.trim(); if(!name) return;
     const { data, error } = await supabase.from("groups").insert({ name }).select().single();
@@ -100,7 +96,6 @@ function Panel(){
     setGroups(prev=>[...prev, { ...data, students: [] }]);
     setNewGroupName("");
   };
-
   const deleteGroup = async (id) => {
     if(!confirm("Bu grubu silmek istiyor musun?")) return;
     const { error } = await supabase.from("groups").delete().eq("id", id);
@@ -116,32 +111,30 @@ function Panel(){
     const { data, error } = await supabase.from("students").insert(payload).select().single();
     if (error) return alert("Öğrenci eklenemedi.");
     setGroups(prev=>prev.map(g=> g.id!==activeGroupId ? g : ({ ...g, students: [...g.students, data] })));
-    setNewStudent({ name:"", grade:"", parent_phone:"" });
+    setNewStudent({ name:"", parent_phone:"" });
   };
-
   const deleteStudent = async (sid) => {
     if (!confirm("Bu öğrenciyi silmek istiyor musun?")) return;
     const { error } = await supabase.from("students").delete().eq("id", sid);
     if (error) return alert("Öğrenci silinemedi.");
     setGroups(prev=>prev.map(g=> g.id!==activeGroupId ? g : ({ ...g, students: g.students.filter(s=>s.id!==sid) })));
   };
-
   const patchStudent = async (sid, patch) => {
+    // Optimistic UI
     setGroups(prev=>prev.map(g=> g.id!==activeGroupId ? g : ({
       ...g, students: g.students.map(s=> s.id===sid ? ({ ...s, ...patch }) : s)
     })));
     const { error } = await supabase.from("students").update(patch).eq("id", sid);
-    if (error) console.error(error); // sessiz hata
+    if (error) console.error(error);
   };
 
-  // Mesaj metni (ders sonrası: sadece öğrenci ödevi; varsayılan yok)
+  // Mesaj üretimi
   const buildText = (s) => {
     if (s.custom_text && s.custom_text.trim()) return s.custom_text;
     return mode==="pre"
       ? preT({ student:s.name, day:s.day||defaults.day, time:s.time||defaults.time, place:s.place||defaults.place, topic:s.topic||defaults.topic })
       : postT({ student:s.name, homework:(s.homework?.trim() || "—") });
   };
-
   const previews = useMemo(()=>{
     if(!activeGroup) return [];
     return (activeGroup.students||[]).filter(s=>!s.opted_out).map(s=>({ id:s.id, name:s.name, text:buildText(s) }));
@@ -223,15 +216,12 @@ function Panel(){
         </div>
       )}
 
-      {/* Yeni öğrenci ekle */}
+      {/* Yeni öğrenci ekle (artık sadece Ad Soyad + Veli Telefonu) */}
       <div className="card" style={{marginBottom:12}}>
         <h3 className="section-title">Yeni Öğrenci Ekle</h3>
         <div className="grid grid-3">
           <div><div className="label">Ad Soyad</div>
             <input className="input" value={newStudent.name} onChange={e=>setNewStudent({...newStudent,name:e.target.value})} />
-          </div>
-          <div><div className="label">Sınıf</div>
-            <input className="input" value={newStudent.grade} onChange={e=>setNewStudent({...newStudent,grade:e.target.value})} />
           </div>
           <div><div className="label">Veli Telefonu</div>
             <input className="input" placeholder="+44..." value={newStudent.parent_phone} onChange={e=>setNewStudent({...newStudent,parent_phone:e.target.value})} />
@@ -251,13 +241,11 @@ function Panel(){
               <div style={{display:"flex",justifyContent:"space-between",gap:12}}>
                 <div>
                   <div style={{fontWeight:700}}>{s.name}</div>
-                  <div style={{color:"var(--muted)",fontSize:12}}>Sınıf: {s.grade||"—"}</div>
                   <div style={{color:"var(--muted)",fontSize:12, marginTop:4}}>Veli: {s.parent_phone || "—"}</div>
                 </div>
                 <button className="btn" onClick={()=>deleteStudent(s.id)}>Sil</button>
               </div>
 
-              {/* Ders öncesi alanlar */}
               {mode==="pre" ? (
                 <div className="grid grid-3" style={{marginTop:8}}>
                   <div><div className="label">Gün</div><input className="input" value={s.day||""} onChange={e=>patchStudent(s.id,{day:e.target.value})} placeholder="(boş=varsayılan)" /></div>
@@ -266,7 +254,6 @@ function Panel(){
                   <div style={{gridColumn:"1 / -1"}}><div className="label">Konu</div><input className="input" value={s.topic||""} onChange={e=>patchStudent(s.id,{topic:e.target.value})} placeholder="(boş=varsayılan)" /></div>
                 </div>
               ) : (
-                // Ders sonrası: ödev sadece öğrenci bazında
                 <div style={{marginTop:8}}>
                   <div className="label">Ödev</div>
                   <textarea className="textarea" value={s.homework||""} onChange={e=>patchStudent(s.id,{homework:e.target.value})} placeholder="Bu haftaki ödev" />
