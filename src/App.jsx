@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-/* --- Örnek veriler --- */
+/* -------- ÖRNEK VERİ -------- */
 const INITIAL_GROUPS = [
   { id: "adil", name: "Adil", students: [
     { id: "s1", name: "Ahmet Karkur", grade: "8" },
@@ -12,10 +12,10 @@ const INITIAL_GROUPS = [
   ]},
 ];
 
-/* --- Yardımcılar (Türkçe ekler) --- */
+/* -------- YARDIMCILAR (Türkçe ekler) -------- */
 const VOWELS = ["a","e","ı","i","o","ö","u","ü"];
 const endsWithVowel = s => VOWELS.includes((s||"").trim().toLowerCase().slice(-1));
-const lastVowel = s => { const t=(s||"").toLowerCase(); for(let i=t.length-1;i>=0;i--) if (VOWELS.includes(t[i])) return t[i]; return null; };
+const lastVowel = s => { const t=(s||"").toLowerCase(); for(let i=t.length-1;i>=0;i--) if(VOWELS.includes(t[i])) return t[i]; return null; };
 function genitive(name){
   const lv = lastVowel(name)||"e";
   const harmony = (lv==="a"||lv==="ı")?"ın":(lv==="e"||lv==="i")?"in":(lv==="o"||lv==="u")?"un":"ün";
@@ -23,20 +23,19 @@ function genitive(name){
   return `${name}’${needsN?"n":""}${harmony}`;
 }
 
-/* --- Şablonlar --- */
 const preT = ({ student, day, time, place, topic }) =>
   `Saygıdeğer velimiz, öğrenciniz ${genitive(student)} bu haftaki dersi ${day} günü saat ${time}’te ${place} gerçekleştirilecektir.\nBu hafta işleyeceğimiz konumuz: “${topic}”.\nÇok teşekkürler.`;
 const postT = ({ student, homework }) =>
   `Saygıdeğer velimiz, ${genitive(student)} bu haftaki ödevi: “${homework}”.\nÇok teşekkürler, görüşmek dileğiyle.`;
 
-/* --- Giriş --- */
+/* -------- GİRİŞ -------- */
 function Gate({ children }){
   const [ok,setOk]=useState(false); const [code,setCode]=useState("");
   useEffect(()=>{ setOk(localStorage.getItem("access_ok")==="1") },[]);
   const submit=()=>{
     const correct=(import.meta.env.VITE_ACCESS_CODE||"2025panel").toString().trim().toLowerCase();
     const typed=(code||"").toString().trim().toLowerCase();
-    if(typed===correct){ localStorage.setItem("access_ok","1"); setOk(true); }
+    if(typed===correct){ localStorage.setItem("access_ok","1"); setOk(true) }
     else alert("Kod yanlış. Lütfen yöneticinizden isteyin.");
   };
   if(!ok) return (
@@ -54,50 +53,41 @@ function Gate({ children }){
   return children;
 }
 
-/* --- Ana Panel --- */
+/* -------- EKRAN YÖNETİMİ: groups | groupDetail -------- */
 function Panel(){
+  const [screen,setScreen]=useState("groups");         // "groups" | "groupDetail"
   const [groups,setGroups]=useState(INITIAL_GROUPS);
-  const [activeGroupId,setActiveGroupId]=useState(groups[0]?.id||"adil");
+  const [activeGroupId,setActiveGroupId]=useState(groups[0]?.id||"");
   const activeGroup=useMemo(()=>groups.find(g=>g.id===activeGroupId),[groups,activeGroupId]);
 
-  const [mode,setMode]=useState("pre"); // 'pre' | 'post'
-  const [defaults,setDefaults]=useState({
-    day:"Cuma", time:"15:00", place:"Öğrenci evinde", topic:"Namazın önemi", homework:"Kırk sayfa kitap okuma"
-  });
+  /* --- Grup işlemleri (Liste ekranında) --- */
+  const [newGroupName,setNewGroupName]=useState("");
+  const slugify=str=>(str||"").toString().trim().toLowerCase().replace(/\s+/g,"-").replace(/[^a-z0-9\-ğüşöçı]/g,"");
+  const addGroup=()=>{
+    const name=newGroupName.trim(); if(!name) return;
+    const id=slugify(name);
+    setGroups(prev=>[...prev,{id,name,students:[]}]);
+    setNewGroupName("");
+  };
+  const deleteGroup=(id)=>{
+    if(!confirm("Bu grubu silmek istiyor musun?")) return;
+    setGroups(prev=>prev.filter(g=>g.id!==id));
+    if (id===activeGroupId) setActiveGroupId("");
+  };
 
-  // öğrenci alanlarını güncelle
+  /* --- Grup detay durumu --- */
+  const [mode,setMode]=useState("pre"); // pre | post
+  const [defaults,setDefaults]=useState({ day:"Cuma", time:"15:00", place:"Öğrenci evinde", topic:"Namazın önemi", homework:"Kırk sayfa kitap okuma" });
+
   const patchStudent=(sid,patch)=>{
     setGroups(prev=>prev.map(g=>g.id!==activeGroupId?g:{...g,students:g.students.map(s=>s.id===sid?{...s,...patch}:s)}));
   };
-
-  // Mesaj metnini oluştur (kişiye özel varsa onu kullan)
   const buildText = (s) => {
     if (s.customText && s.customText.trim()) return s.customText;
     return mode==="pre"
       ? preT({ student:s.name, day:s.day||defaults.day, time:s.time||defaults.time, place:s.place||defaults.place, topic:s.topic||defaults.topic })
       : postT({ student:s.name, homework:s.homework||defaults.homework });
   };
-
-  const previews=useMemo(()=>{
-    if(!activeGroup) return [];
-    return activeGroup.students.filter(s=>!s.optedOut).map(s=>({id:s.id,name:s.name,text:buildText(s)}));
-  },[activeGroup,defaults,mode]);
-
-  /* --- Grup işlemleri --- */
-  const [newGroupName,setNewGroupName]=useState("");
-  const slugify=str=>(str||"").toString().trim().toLowerCase().replace(/\s+/g,"-").replace(/[^a-z0-9\-ğüşöçı]/g,"");
-  const addGroup=()=>{
-    const name=newGroupName.trim(); if(!name) return;
-    const id=slugify(name);
-    setGroups(prev=>[...prev,{id,name,students:[]}]); setActiveGroupId(id); setNewGroupName("");
-  };
-  const deleteGroup=()=>{
-    if(!activeGroup) return;
-    if(!confirm(`“${activeGroup.name}” grubunu silmek istiyor musun?`)) return;
-    setGroups(prev=>prev.filter(g=>g.id!==activeGroupId));
-  };
-
-  /* --- Öğrenci işlemleri --- */
   const [newStudent,setNewStudent]=useState({name:"",grade:""});
   const addStudent=()=>{
     if(!newStudent.name.trim()) return;
@@ -109,43 +99,69 @@ function Panel(){
     if(!confirm("Bu öğrenciyi silmek istiyor musun?")) return;
     setGroups(prev=>prev.map(g=>g.id!==activeGroupId?g:{...g,students:g.students.filter(s=>s.id!==sid)}));
   };
+  const previews=useMemo(()=>{
+    if(!activeGroup) return [];
+    return activeGroup.students.filter(s=>!s.optedOut).map(s=>({id:s.id,name:s.name,text:buildText(s)}));
+  },[activeGroup,defaults,mode]);
 
-  if(!activeGroup) return (
-    <div className="app" style={{marginTop:16}}>
-      <div className="card">
-        <h2 className="section-title">Grup ekleyin</h2>
-        <div className="label">Yeni Grup Adı</div>
-        <div style={{display:"flex",gap:8,marginBottom:12}}>
-          <input className="input" placeholder="Örn: Necdet" value={newGroupName} onChange={e=>setNewGroupName(e.target.value)} />
-          <button className="btn btn-primary" onClick={addGroup}>Ekle</button>
+  /* -------- EKRAN 1: GRUPLAR LİSTESİ -------- */
+  if (screen==="groups"){
+    return (
+      <div className="app" style={{marginTop:16}}>
+        <div className="card" style={{marginBottom:12}}>
+          <h2 className="section-title">Gruplar</h2>
+
+          {/* Liste */}
+          <div className="grid">
+            {groups.map(g=>(
+              <div key={g.id} className="student" style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+                <div>
+                  <div style={{fontWeight:700}}>{g.name}</div>
+                  <div style={{color:"var(--muted)", fontSize:12}}>
+                    {g.students.length} öğrenci
+                  </div>
+                </div>
+                <div style={{display:"flex", gap:8}}>
+                  <button className="btn btn-primary" onClick={()=>{ setActiveGroupId(g.id); setScreen("groupDetail"); }}>
+                    Aç
+                  </button>
+                  <button className="btn" onClick={()=>deleteGroup(g.id)}>Sil</button>
+                </div>
+              </div>
+            ))}
+            {groups.length===0 && <div style={{color:"var(--muted)"}}>Henüz grup yok.</div>}
+          </div>
+
+          {/* Grup ekle */}
+          <div style={{marginTop:12}}>
+            <h3 className="section-title">Yeni Grup Ekle</h3>
+            <div className="grid grid-3">
+              <div>
+                <div className="label">Grup Adı</div>
+                <input className="input" placeholder="Örn: Necdet" value={newGroupName} onChange={e=>setNewGroupName(e.target.value)} />
+              </div>
+              <div style={{display:"flex", alignItems:"flex-end"}}>
+                <button className="btn btn-primary" onClick={addGroup}>Ekle</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
 
+  /* -------- EKRAN 2: GRUP DETAY -------- */
   return (
     <div className="app" style={{marginTop:16}}>
-      {/* Gruplar */}
-      <div className="card" style={{marginBottom:12}}>
-        <h2 className="section-title">Gruplar</h2>
-        <div className="tabs" style={{marginBottom:12}}>
-          {groups.map(g=>(
-            <div key={g.id} className={`tab ${g.id===activeGroupId?"active":""}`} onClick={()=>setActiveGroupId(g.id)}>{g.name}</div>
-          ))}
+      <div className="card" style={{marginBottom:12, display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+        <div>
+          <h2 className="section-title" style={{marginBottom:4}}>{activeGroup?.name}</h2>
+          <div style={{color:"var(--muted)", fontSize:12}}>{activeGroup?.students.length||0} öğrenci</div>
         </div>
-        <div className="grid grid-3">
-          <div>
-            <div className="label">Yeni Grup Adı</div>
-            <input className="input" placeholder="Örn: Necdet" value={newGroupName} onChange={e=>setNewGroupName(e.target.value)} />
-          </div>
-          <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
-            <button className="btn btn-primary" onClick={addGroup}>Grup Ekle</button>
-            <button className="btn" style={{borderColor:"#5b1f1f",background:"#190f0f",color:"#ffb4b4"}} onClick={deleteGroup}>Grubu Sil</button>
-          </div>
-          <div style={{display:"flex",gap:8,alignItems:"flex-end",justifyContent:"flex-end"}}>
-            <button className="btn btn-pill" onClick={()=>setMode("pre")} style={{opacity: mode==="pre"?1:.8}}>Ders Öncesi</button>
-            <button className="btn btn-pill" onClick={()=>setMode("post")} style={{opacity: mode==="post"?1:.8}}>Ders Sonrası</button>
-          </div>
+        <div style={{display:"flex", gap:8}}>
+          <button className="btn" onClick={()=>setScreen("groups")}>← Gruplara Dön</button>
+          <button className="btn btn-pill" onClick={()=>setMode("pre")} style={{opacity: mode==="pre"?1:.8}}>Ders Öncesi</button>
+          <button className="btn btn-pill" onClick={()=>setMode("post")} style={{opacity: mode==="post"?1:.8}}>Ders Sonrası</button>
         </div>
       </div>
 
@@ -167,7 +183,7 @@ function Panel(){
         )}
       </div>
 
-      {/* Yeni öğrenci ekleme */}
+      {/* Yeni öğrenci ekle */}
       <div className="card" style={{marginBottom:12}}>
         <h3 className="section-title">Yeni Öğrenci Ekle</h3>
         <div className="grid grid-3">
@@ -177,7 +193,7 @@ function Panel(){
           <div><div className="label">Sınıf</div>
             <input className="input" value={newStudent.grade} onChange={e=>setNewStudent({...newStudent,grade:e.target.value})} />
           </div>
-          <div style={{display:"flex",alignItems:"flex-end"}}>
+          <div style={{display:"flex", alignItems:"flex-end"}}>
             <button className="btn btn-primary" onClick={addStudent}>Ekle</button>
           </div>
         </div>
@@ -197,7 +213,6 @@ function Panel(){
                 <button className="btn" onClick={()=>deleteStudent(s.id)}>Sil</button>
               </div>
 
-              {/* Kişiye özel alanlar (isteğe bağlı) */}
               {mode==="pre" ? (
                 <div className="grid grid-3" style={{marginTop:8}}>
                   <div><div className="label">Gün</div><input className="input" value={s.day||""} onChange={e=>patchStudent(s.id,{day:e.target.value})} placeholder="(boş=varsayılan)" /></div>
@@ -212,11 +227,13 @@ function Panel(){
                 </div>
               )}
 
-              {/* Önizleme + Kişiye özel metin */}
               <div style={{marginTop:10}}>
                 <div className="label">Önizleme</div>
-                <div className="preview">{buildText(s)}</div>
+                <div className="preview">
+                  {previews.find(p=>p.id===s.id)?.text || ""}
+                </div>
               </div>
+
               <div style={{marginTop:8}}>
                 <div className="label">Kişiye Özel Düzenle</div>
                 <textarea className="textarea" placeholder="Elle mesaj yaz (boşsa otomatik şablon kullanılır)" value={s.customText||""} onChange={e=>patchStudent(s.id,{customText:e.target.value})}/>
@@ -229,9 +246,9 @@ function Panel(){
         </div>
       </div>
 
-      {/* Toplu Önizleme & Gönder */}
+      {/* Toplu Önizleme */}
       <div className="card">
-        <h3 className="section-title">Toplu Önizleme & Gönder</h3>
+        <h3 className="section-title">Toplu Önizleme</h3>
         <div className="grid">
           {previews.length===0 && <div style={{color:"var(--muted)"}}>Gönderilecek mesaj yok.</div>}
           {previews.map(p=>(
@@ -241,15 +258,12 @@ function Panel(){
             </div>
           ))}
         </div>
-        <div style={{display:"flex",justifyContent:"flex-end",marginTop:12}}>
-          <button className="btn btn-primary" onClick={()=>alert(`${previews.length} mesaj hazır (DEMO)`)}>Şimdi Gönder (DEMO)</button>
-        </div>
       </div>
     </div>
   );
 }
 
-/* --- Uygulama --- */
+/* -------- UYGULAMA -------- */
 export default function App(){
   return (
     <Gate>
