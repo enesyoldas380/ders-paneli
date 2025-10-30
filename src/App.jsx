@@ -12,17 +12,38 @@ const btn = (primary=false)=>({
 // Örnek veriler
 const INITIAL_GROUPS = [
   { id: 'adil', name: 'Adil', students: [
-    { id: 's1', name: 'Ahmet Karkur', grade: '8' },
-    { id: 's2', name: 'Yiğit', grade: '8' },
-    { id: 's3', name: 'Nusret', grade: '7' },
-    { id: 's4', name: 'Orhan', grade: '7' },
+    { id: 's1',  name: 'Ahmet Karkur', grade: '8' },
+    { id: 's2',  name: 'Yiğit',        grade: '8' },
+    { id: 's3',  name: 'Nusret',       grade: '7' },
+    { id: 's4',  name: 'Orhan',        grade: '7' },
   ]},
   { id: 'burhan', name: 'Burhan', students: [
-    { id: 's5', name: 'Eymen', grade: '7' },
-    { id: 's6', name: 'Vefa', grade: '7' },
-    { id: 's7', name: 'Metin', grade: '7' },
+    { id: 's5',  name: 'Eymen', grade: '7' },
+    { id: 's6',  name: 'Vefa',  grade: '7' },
+    { id: 's7',  name: 'Metin', grade: '7' },
   ]},
-]
+  { id: 'necdet', name: 'Necdet', students: [
+    { id: 's8',  name: 'Bünyamin', grade: '8' },
+    { id: 's9',  name: 'Cevdet',   grade: '8' },
+  ]},
+  { id: 'mehmet-akif', name: 'Mehmet Akif', students: [
+    { id: 's10', name: 'Halil İbrahim', grade: '9'  },
+    { id: 's11', name: 'Emrullah',      grade: '11' },
+    { id: 's12', name: 'Burhan',        grade: '11' },
+    { id: 's13', name: 'Necdet',        grade: '12' },
+    { id: 's14', name: 'Ahmet Eser',    grade: '11' },
+    { id: 's15', name: 'Ümit',          grade: '11' },
+    { id: 's16', name: 'Yahya',         grade: '11' },
+  ]},
+  { id: 'enes', name: 'Enes', students: [
+    { id: 's17', name: 'Oğuzhan', grade: '12' },
+    { id: 's18', name: 'Murat',   grade: 'üniversite' },
+    { id: 's19', name: 'Ahmet K', grade: '12' },
+    { id: 's20', name: 'Ahmet',   grade: '12' },
+    { id: 's21', name: 'Adil',    grade: '12' },
+  ]},
+];
+
 
 // Mesaj şablonları
 const templatePre = ({ student, day, time, place, topic }) =>
