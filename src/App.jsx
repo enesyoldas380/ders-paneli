@@ -287,7 +287,22 @@ function Panel(){
 
       {/* Toplu Önizleme */}
       <div className="card">
-        <h3 className="section-title">Toplu Önizleme</h3>
+       {/* Toplu Önizleme */}
+<div className="card">
+  <h3 className="section-title">Toplu Önizleme</h3>
+
+  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+    <button
+      className="btn btn-primary"
+      onClick={() => {
+        console.log("Toplu gönderim tetiklendi!");
+        console.log("Gönderilecek mesajlar:", previews);
+        alert("Test: Toplu gönderim simülasyonu çalıştı (henüz gerçek mesaj yok)");
+      }}
+    >
+      📤 Toplu Gönder
+    </button>
+  </div>
         <div className="grid">
           {previews.length===0 && <div style={{color:"var(--muted)"}}>Gönderilecek mesaj yok.</div>}
           {previews.map(p=>(
