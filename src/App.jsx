@@ -23,10 +23,15 @@ function genitive(name){
   return `${name}’${needsN?"n":""}${harmony}`;
 }
 
+/* -------- ŞABLONLAR -------- */
 const preT = ({ student, day, time, place, topic }) =>
-  `Saygıdeğer velimiz, öğrenciniz ${genitive(student)} bu haftaki dersi ${day} günü saat ${time}’te ${place} gerçekleştirilecektir.\nBu hafta işleyeceğimiz konumuz: “${topic}”.\nÇok teşekkürler.`;
+  `Saygıdeğer velimiz, öğrenciniz ${genitive(student)} bu haftaki dersi ${day} günü saat ${time}’te ${place} gerçekleştirilecektir.
+Bu hafta işleyeceğimiz konumuz: “${topic}”.
+Çok teşekkürler.`;
+
 const postT = ({ student, homework }) =>
-  `Saygıdeğer velimiz, ${genitive(student)} bu haftaki ödevi: “${homework}”.\nÇok teşekkürler, görüşmek dileğiyle.`;
+  `Saygıdeğer velimiz, ${genitive(student)} bu haftaki ödevi: “${homework}”.
+Çok teşekkürler, görüşmek dileğiyle.`;
 
 /* -------- GİRİŞ -------- */
 function Gate({ children }){
@@ -53,14 +58,14 @@ function Gate({ children }){
   return children;
 }
 
-/* -------- EKRAN YÖNETİMİ: groups | groupDetail -------- */
+/* -------- EKRAN YÖNETİMİ -------- */
 function Panel(){
-  const [screen,setScreen]=useState("groups");         // "groups" | "groupDetail"
+  const [screen,setScreen]=useState("groups"); // "groups" | "groupDetail"
   const [groups,setGroups]=useState(INITIAL_GROUPS);
   const [activeGroupId,setActiveGroupId]=useState(groups[0]?.id||"");
   const activeGroup=useMemo(()=>groups.find(g=>g.id===activeGroupId),[groups,activeGroupId]);
 
-  /* --- Grup işlemleri (Liste ekranında) --- */
+  /* --- Grup işlemleri (Liste ekranı) --- */
   const [newGroupName,setNewGroupName]=useState("");
   const slugify=str=>(str||"").toString().trim().toLowerCase().replace(/\s+/g,"-").replace(/[^a-z0-9\-ğüşöçı]/g,"");
   const addGroup=()=>{
@@ -77,17 +82,22 @@ function Panel(){
 
   /* --- Grup detay durumu --- */
   const [mode,setMode]=useState("pre"); // pre | post
-  const [defaults,setDefaults]=useState({ day:"Cuma", time:"15:00", place:"Öğrenci evinde", topic:"Namazın önemi", homework:"Kırk sayfa kitap okuma" });
+  // DİKKAT: Ders sonrası için varsayılan yok, sadece ders öncesine özel.
+  const [defaults,setDefaults]=useState({ day:"Cuma", time:"15:00", place:"Öğrenci evinde", topic:"Namazın önemi" });
 
   const patchStudent=(sid,patch)=>{
     setGroups(prev=>prev.map(g=>g.id!==activeGroupId?g:{...g,students:g.students.map(s=>s.id===sid?{...s,...patch}:s)}));
   };
+
+  // Mesaj metni (ders sonrası için sadece öğrencinin kendi ödevi)
   const buildText = (s) => {
     if (s.customText && s.customText.trim()) return s.customText;
     return mode==="pre"
       ? preT({ student:s.name, day:s.day||defaults.day, time:s.time||defaults.time, place:s.place||defaults.place, topic:s.topic||defaults.topic })
-      : postT({ student:s.name, homework:s.homework||defaults.homework });
+      : postT({ student:s.name, homework:(s.homework?.trim() || "—") });
   };
+
+  /* Öğrenci ekle/sil */
   const [newStudent,setNewStudent]=useState({name:"",grade:""});
   const addStudent=()=>{
     if(!newStudent.name.trim()) return;
@@ -99,19 +109,19 @@ function Panel(){
     if(!confirm("Bu öğrenciyi silmek istiyor musun?")) return;
     setGroups(prev=>prev.map(g=>g.id!==activeGroupId?g:{...g,students:g.students.filter(s=>s.id!==sid)}));
   };
+
   const previews=useMemo(()=>{
     if(!activeGroup) return [];
     return activeGroup.students.filter(s=>!s.optedOut).map(s=>({id:s.id,name:s.name,text:buildText(s)}));
   },[activeGroup,defaults,mode]);
 
-  /* -------- EKRAN 1: GRUPLAR LİSTESİ -------- */
+  /* -------- EKRAN 1: GRUPLAR -------- */
   if (screen==="groups"){
     return (
       <div className="app" style={{marginTop:16}}>
         <div className="card" style={{marginBottom:12}}>
           <h2 className="section-title">Gruplar</h2>
 
-          {/* Liste */}
           <div className="grid">
             {groups.map(g=>(
               <div key={g.id} className="student" style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
@@ -132,7 +142,6 @@ function Panel(){
             {groups.length===0 && <div style={{color:"var(--muted)"}}>Henüz grup yok.</div>}
           </div>
 
-          {/* Grup ekle */}
           <div style={{marginTop:12}}>
             <h3 className="section-title">Yeni Grup Ekle</h3>
             <div className="grid grid-3">
@@ -165,23 +174,18 @@ function Panel(){
         </div>
       </div>
 
-      {/* Varsayılan Bilgiler */}
-      <div className="card" style={{marginBottom:12}}>
-        <h3 className="section-title">Varsayılan Bilgiler ({mode==="pre"?"Ders Öncesi":"Ders Sonrası"})</h3>
-        {mode==="pre" ? (
+      {/* DERS ÖNCESİ: Sadece burada varsayılanlar var */}
+      {mode==="pre" && (
+        <div className="card" style={{marginBottom:12}}>
+          <h3 className="section-title">Varsayılan Bilgiler (Ders Öncesi)</h3>
           <div className="grid grid-4">
             <div><div className="label">Gün</div><input className="input" value={defaults.day} onChange={e=>setDefaults({...defaults,day:e.target.value})} placeholder="Cuma" /></div>
             <div><div className="label">Saat</div><input className="input" value={defaults.time} onChange={e=>setDefaults({...defaults,time:e.target.value})} placeholder="15:00" /></div>
             <div><div className="label">Yer</div><input className="input" value={defaults.place} onChange={e=>setDefaults({...defaults,place:e.target.value})} placeholder="Öğrenci evinde" /></div>
             <div><div className="label">Konu</div><input className="input" value={defaults.topic} onChange={e=>setDefaults({...defaults,topic:e.target.value})} placeholder="Namazın önemi" /></div>
           </div>
-        ) : (
-          <div>
-            <div className="label">Ödev</div>
-            <textarea className="textarea" value={defaults.homework} onChange={e=>setDefaults({...defaults,homework:e.target.value})} placeholder="Kırk sayfa kitap okuma" />
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Yeni öğrenci ekle */}
       <div className="card" style={{marginBottom:12}}>
@@ -223,7 +227,7 @@ function Panel(){
               ) : (
                 <div style={{marginTop:8}}>
                   <div className="label">Ödev</div>
-                  <textarea className="textarea" value={s.homework||""} onChange={e=>patchStudent(s.id,{homework:e.target.value})} placeholder="(boş=varsayılan)" />
+                  <textarea className="textarea" value={s.homework||""} onChange={e=>patchStudent(s.id,{homework:e.target.value})} placeholder="Bu haftaki ödev" />
                 </div>
               )}
 
