@@ -7,3 +7,4 @@
 ## Lokal Geliştirme (istersen)
 npm install
 npm run dev
+
