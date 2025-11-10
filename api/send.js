@@ -1,5 +1,5 @@
 // api/send.js
-// WhatsApp Cloud API ile toplu mesaj gönderimi
+// WhatsApp Cloud API - şimdilik hello_world template ile gönderim
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -17,7 +17,6 @@ export default async function handler(req, res) {
   const token = process.env.WABA_TOKEN;
   const phoneId = process.env.WABA_PHONE_ID;
 
-  // Env yoksa asla gerçek gönderim yapma, sadece test modu
   if (!token || !phoneId) {
     console.log("[send] TEST MODU, env yok. Gelen mesajlar:", messages);
     res.status(200).json({
@@ -29,33 +28,28 @@ export default async function handler(req, res) {
     return;
   }
 
-  const url = `https://graph.facebook.com/v19.0/${phoneId}/messages`;
+  const url = `https://graph.facebook.com/v22.0/${phoneId}/messages`;
   const results = [];
 
   for (const m of messages) {
     const rawTo = String(m.to || "").trim();
-    const text = String(m.text || "").trim();
 
-    if (!rawTo || !text) {
-      results.push({ to: rawTo, ok: false, error: "missing to/text" });
+    if (!rawTo) {
+      results.push({ to: rawTo, ok: false, error: "missing to" });
       continue;
     }
 
-    // --- NUMARA FORMATLAMA ---
-    // Sadece rakamları bırak ( +, boşluk vs. temizle)
+    // numarayı uluslararası formata getir (template örneğiyle uyumlu)
     let digits = rawTo.replace(/\D/g, "");
 
-    // Örn: 07... yazılırsa -> 44... yap
     if (digits.startsWith("0")) {
       digits = "44" + digits.slice(1);
     }
-
-    // Ülke kodu yoksa (çok basit kontrol)
     if (!digits.startsWith("44")) {
       digits = "44" + digits;
     }
 
-    const to = digits; // WhatsApp Cloud: + işareti olmadan uluslararası format
+    const to = digits;
 
     try {
       const resp = await fetch(url, {
@@ -67,8 +61,11 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           messaging_product: "whatsapp",
           to,
-          type: "text",
-          text: { body: text },
+          type: "template",
+          template: {
+            name: "hello_world",
+            language: { code: "en_US" },
+          },
         }),
       });
 
@@ -76,11 +73,7 @@ export default async function handler(req, res) {
 
       if (!resp.ok) {
         console.error("[send] WhatsApp API error", to, data);
-        results.push({
-          to,
-          ok: false,
-          error: data.error || data,
-        });
+        results.push({ to, ok: false, error: data.error || data });
       } else {
         results.push({
           to,
@@ -99,7 +92,7 @@ export default async function handler(req, res) {
 
   res.status(sentOk > 0 ? 200 : 400).json({
     ok: sentOk > 0,
-    mode: "live",
+    mode: "live-template",
     sent: sentOk,
     results,
     error: firstError,
