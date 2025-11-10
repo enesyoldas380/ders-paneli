@@ -340,17 +340,22 @@ function Panel(){
 
               const data = await resp.json();
 
-              if (!resp.ok || !data?.ok) {
-                console.error("Gönderim hatası:", data);
-                alert("Gönderim başarısız. Konsola bakınız.");
-                return;
-              }
+              if (!resp.ok || !data?.ok || !data.sent) {
+        console.error("Gönderim hatası:", data);
+        const msg =
+          data?.error?.message ||
+          data?.error ||
+          "Gönderim başarısız. Ayrıntı için konsola bakınız.";
+        alert(msg);
+        return;
+      }
 
-              alert(
-                `Tamam: ${data.sent || list.length} mesaj işlendi${
-                  data.mode === "test" ? " (TEST MODU)" : ""
-                }.`
-              );
+      alert(
+        `Tamam: ${data.sent} mesaj gönderildi${
+          data.mode === "test" ? " (TEST MODU)" : ""
+        }.`
+      );
+      console.log("Sonuçlar:", data.results || data);
               console.log("Sonuçlar:", data.results || data);
             } catch (e) {
               console.error(e);
