@@ -1,71 +1,96 @@
-// Vercel Serverless Function: /api/send
-// Env: WABA_TOKEN, WABA_PHONE_ID  (Vercel -> Settings -> Environment Variables)
+// api/send.js
+// Vercel serverless function: WhatsApp mesajlarını gönderir
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+  if (req.method !== "POST") {
+    res.status(405).json({ ok: false, error: "Method Not Allowed" });
+    return;
+  }
 
   const { messages } = req.body || {};
+
   if (!Array.isArray(messages) || messages.length === 0) {
-    return res.status(400).json({ error: 'messages boş' });
+    res.status(400).json({ ok: false, error: "No messages in body" });
+    return;
   }
 
   const token = process.env.WABA_TOKEN;
   const phoneId = process.env.WABA_PHONE_ID;
 
-  // Test modu: env yoksa gönderim simülasyonu yap
+  // Güvenlik: Env yoksa GERÇEK GÖNDERME, sadece simülasyon
   if (!token || !phoneId) {
-    console.warn('WABA_TOKEN veya WABA_PHONE_ID tanımlı değil. Test modunda döndüm.');
-    return res.status(200).json({ ok: true, mode: 'test', count: messages.length });
+    console.log("[send] TEST MODU, env yok. Gelen mesajlar:", messages);
+    res.status(200).json({
+      ok: true,
+      mode: "test",
+      sent: messages.length,
+      results: messages.map((m) => ({ to: m.to, ok: true, test: true })),
+    });
+    return;
   }
 
-  // WhatsApp Business Cloud API
-  const url = `https://graph.facebook.com/v21.0/${phoneId}/messages`;
-
+  const url = `https://graph.facebook.com/v19.0/${phoneId}/messages`;
   const results = [];
+
   for (const m of messages) {
-    const to = normalizePhone(m.to);
-    const body = (m.text || '').slice(0, 4096); // WhatsApp limit güvenliği
+    const rawTo = String(m.to || "").trim();
+    const text = String(m.text || "").trim();
+
+    if (!rawTo || !text) {
+      results.push({ to: rawTo, ok: false, error: "missing to/text" });
+      continue;
+    }
+
+    // UK için küçük normalizasyon: 07... -> +44..., başında + yoksa +44 ekle
+    let to = rawTo;
+    if (to.startsWith("07")) {
+      to = "+44" + to.slice(1);
+    } else if (/^\d+$/.test(to)) {
+      // sadece rakamsa
+      to = "+44" + to;
+    }
 
     try {
-      const r = await fetch(url, {
-        method: 'POST',
+      const resp = await fetch(url, {
+        method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          messaging_product: 'whatsapp',
+          messaging_product: "whatsapp",
           to,
-          type: 'text',
-          text: { preview_url: false, body }
-        })
+          type: "text",
+          text: { body: text },
+        }),
       });
-      const data = await r.json();
-      if (!r.ok) {
-        results.push({ to, ok: false, error: data?.error || data });
+
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        console.error("[send] WhatsApp API error", to, data);
+        results.push({
+          to,
+          ok: false,
+          error: data.error || data,
+        });
       } else {
-        results.push({ to, ok: true, id: data?.messages?.[0]?.id });
+        results.push({
+          to,
+          ok: true,
+          responseId: data.messages?.[0]?.id,
+        });
       }
-      // küçük gecikme, rate-limit nazikliği
-      await new Promise(s => setTimeout(s, 120));
-    } catch (e) {
-      results.push({ to, ok: false, error: e?.message || e });
+    } catch (err) {
+      console.error("[send] fetch exception", to, err);
+      results.push({ to, ok: false, error: String(err) });
     }
   }
 
-  const okCount = results.filter(x => x.ok).length;
-  return res.status(200).json({ ok: true, sent: okCount, results });
-}
-
-function normalizePhone(input) {
-  if (!input) return '';
-  let s = ('' + input).trim();
-  // boşluk ve tire temizle
-  s = s.replace(/[()\s-]/g, '');
-  // + ile başlamıyorsa ve 0 ile başlıyorsa → UK varsayımı +44
-  if (!s.startsWith('+')) {
-    if (s.startsWith('0')) s = '+44' + s.slice(1);
-    else if (/^\d+$/.test(s)) s = '+' + s; // zaten uluslararası olabilir
-  }
-  return s;
+  res.status(200).json({
+    ok: true,
+    mode: "live",
+    sent: results.filter((r) => r.ok).length,
+    results,
+  });
 }
