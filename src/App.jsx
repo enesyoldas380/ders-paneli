@@ -309,16 +309,58 @@ function Panel(){
         <h3 className="section-title">Toplu Önizleme</h3>
 
         <div style={{display:"flex", justifyContent:"flex-end", marginBottom:12}}>
-          <button
-            className="btn btn-primary"
-            onClick={()=>{
-              console.log("Toplu gönderim tetiklendi!");
-              console.log("Gönderilecek mesajlar:", previews);
-              alert("Test: Toplu gönderim simülasyonu çalıştı (henüz gerçek mesaj yok)");
-            }}
-          >
-            📤 Toplu Gönder
-          </button>
+                  <button
+          className="btn btn-primary"
+          onClick={async () => {
+            try {
+              const list = (activeGroup?.students || [])
+                .filter(
+                  (s) =>
+                    !s.opted_out && (s.parent_phone || "").trim()
+                )
+                .map((s) => ({
+                  to: s.parent_phone,
+                  text:
+                    (previews.find((p) => p.id === s.id)?.text) ||
+                    "",
+                }));
+
+              if (list.length === 0) {
+                alert(
+                  "Gönderilecek uygun kişi yok (telefon eksik ya da tümü opt-out)."
+                );
+                return;
+              }
+
+              const resp = await fetch("/api/send", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ messages: list }),
+              });
+
+              const data = await resp.json();
+
+              if (!resp.ok || !data?.ok) {
+                console.error("Gönderim hatası:", data);
+                alert("Gönderim başarısız. Konsola bakınız.");
+                return;
+              }
+
+              alert(
+                `Tamam: ${data.sent || list.length} mesaj işlendi${
+                  data.mode === "test" ? " (TEST MODU)" : ""
+                }.`
+              );
+              console.log("Sonuçlar:", data.results || data);
+            } catch (e) {
+              console.error(e);
+              alert("Beklenmeyen bir hata oluştu.");
+            }
+          }}
+        >
+          📤 Toplu Gönder
+        </button>
+
         </div>
 
         <div className="grid">
