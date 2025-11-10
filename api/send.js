@@ -1,5 +1,5 @@
 // api/send.js
-// Vercel serverless function: WhatsApp mesajlarını gönderir
+// WhatsApp Cloud API ile toplu mesaj gönderimi
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   const token = process.env.WABA_TOKEN;
   const phoneId = process.env.WABA_PHONE_ID;
 
-  // Güvenlik: Env yoksa GERÇEK GÖNDERME, sadece simülasyon
+  // Env yoksa asla gerçek gönderim yapma, sadece test modu
   if (!token || !phoneId) {
     console.log("[send] TEST MODU, env yok. Gelen mesajlar:", messages);
     res.status(200).json({
@@ -41,14 +41,21 @@ export default async function handler(req, res) {
       continue;
     }
 
-    // UK için küçük normalizasyon: 07... -> +44..., başında + yoksa +44 ekle
-    let to = rawTo;
-    if (to.startsWith("07")) {
-      to = "+44" + to.slice(1);
-    } else if (/^\d+$/.test(to)) {
-      // sadece rakamsa
-      to = "+44" + to;
+    // --- NUMARA FORMATLAMA ---
+    // Sadece rakamları bırak ( +, boşluk vs. temizle)
+    let digits = rawTo.replace(/\D/g, "");
+
+    // Örn: 07... yazılırsa -> 44... yap
+    if (digits.startsWith("0")) {
+      digits = "44" + digits.slice(1);
     }
+
+    // Ülke kodu yoksa (çok basit kontrol)
+    if (!digits.startsWith("44")) {
+      digits = "44" + digits;
+    }
+
+    const to = digits; // WhatsApp Cloud: + işareti olmadan uluslararası format
 
     try {
       const resp = await fetch(url, {
@@ -87,10 +94,14 @@ export default async function handler(req, res) {
     }
   }
 
-  res.status(200).json({
-    ok: true,
+  const sentOk = results.filter((r) => r.ok).length;
+  const firstError = results.find((r) => !r.ok)?.error || null;
+
+  res.status(sentOk > 0 ? 200 : 400).json({
+    ok: sentOk > 0,
     mode: "live",
-    sent: results.filter((r) => r.ok).length,
+    sent: sentOk,
     results,
+    error: firstError,
   });
 }
